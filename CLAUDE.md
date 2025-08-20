@@ -7,7 +7,7 @@ This repository contains a bridge system that allows Claude Code to communicate 
 ## Communication Architecture
 
 ### TCP Bridge Protocol
-- **Endpoint**: The Dolphin server listens on `172.25.224.1:8097` (configurable)
+- **Endpoint**: The Dolphin server listens on the Windows host IP as seen from WSL (typically `172.x.x.1` or found via `ip route show | grep default`)
 - **Helper Script**: `bin/st` provides a command-line interface to send Smalltalk code
 - **Protocol**: Simple TCP socket communication using netcat (`nc`)
 
@@ -34,10 +34,23 @@ ST
 ./bin/st -T "Transcript show: 'Hello from Claude'; cr"
 ```
 
-#### Environment Variables
-- `SMALLTALK_HOST` (default: `172.25.224.1`)
-- `SMALLTALK_PORT` (default: `8097`) 
+#### Configuration
+Configuration is managed through `config/smalltalk.conf` with the following parameters:
+- `SMALLTALK_HOST` - Windows host IP as seen from WSL (find with: `ip route show | grep default | awk '{print $3}'`)
+- `SMALLTALK_PORT` - Port where Dolphin TCP server is listening
 - `SMALLTALK_TIMEOUT` (default: `8` seconds)
+
+Environment variables can still override these settings. Use `bin/st-config` to manage configuration:
+```bash
+# Show current config
+./bin/st-config show
+
+# Set Windows host IP (find with: ip route show | grep default | awk '{print $3}')
+./bin/st-config set SMALLTALK_HOST 172.25.224.1
+
+# Change port
+./bin/st-config set SMALLTALK_PORT 8097
+```
 
 ### Logging and Output
 - `var/last.st`: Last Smalltalk code sent

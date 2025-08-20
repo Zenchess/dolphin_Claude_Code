@@ -1,0 +1,9 @@
+# Local configuration changes (users should customize the checked-in config)
+# config/smalltalk.conf
+
+# Runtime files
+var/
+
+# System files
+.DS_Store
+Thumbs.db

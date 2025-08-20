@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Utility to manage Smalltalk bridge configuration
+
+set -euo pipefail
+
+config_file="$(dirname "$(dirname "$(realpath "$0")")")/config/smalltalk.conf"
+
+print_usage() {
+  cat <<USAGE
+Usage: $(basename "$0") [command] [options]
+
+Commands:
+  show                Show current configuration
+  set <key> <value>   Set a configuration value
+  get <key>           Get a configuration value
+  edit                Edit config file directly
+
+Valid keys: SMALLTALK_HOST, SMALLTALK_PORT, SMALLTALK_TIMEOUT
+
+Examples:
+  $(basename "$0") show
+  $(basename "$0") set SMALLTALK_PORT 9000
+  $(basename "$0") get SMALLTALK_HOST
+USAGE
+}
+
+ensure_config() {
+  if [[ ! -f "$config_file" ]]; then
+    mkdir -p "$(dirname "$config_file")"
+    cat > "$config_file" <<'EOF'
+# Dolphin Smalltalk TCP Bridge Configuration
+# This file configures the connection parameters for the Claude Code integration
+
+# Server host address
+SMALLTALK_HOST=172.25.224.1
+
+# Server port number
+SMALLTALK_PORT=8097
+
+# Connection timeout in seconds
+SMALLTALK_TIMEOUT=8
+EOF
+  fi
+}
+
+show_config() {
+  ensure_config
+  echo "Current configuration ($config_file):"
+  cat "$config_file"
+}
+
+set_config() {
+  local key="$1"
+  local value="$2"
+  
+  if [[ ! "$key" =~ ^SMALLTALK_(HOST|PORT|TIMEOUT)$ ]]; then
+    echo "Error: Invalid key '$key'. Valid keys: SMALLTALK_HOST, SMALLTALK_PORT, SMALLTALK_TIMEOUT" >&2
+    exit 1
+  fi
+  
+  ensure_config
+  
+  if grep -q "^$key=" "$config_file"; then
+    sed -i "s/^$key=.*/$key=$value/" "$config_file"
+  else
+    echo "$key=$value" >> "$config_file"
+  fi
+  
+  echo "Set $key=$value"
+}
+
+get_config() {
+  local key="$1"
+  ensure_config
+  
+  if grep -q "^$key=" "$config_file"; then
+    grep "^$key=" "$config_file" | cut -d'=' -f2
+  else
+    echo "Key '$key' not found in config" >&2
+    exit 1
+  fi
+}
+
+edit_config() {
+  ensure_config
+  ${EDITOR:-nano} "$config_file"
+}
+
+case "${1:-}" in
+  show)
+    show_config
+    ;;
+  set)
+    if [[ $# -ne 3 ]]; then
+      echo "Error: set requires key and value" >&2
+      print_usage
+      exit 1
+    fi
+    set_config "$2" "$3"
+    ;;
+  get)
+    if [[ $# -ne 2 ]]; then
+      echo "Error: get requires key" >&2
+      print_usage
+      exit 1
+    fi
+    get_config "$2"
+    ;;
+  edit)
+    edit_config
+    ;;
+  *)
+    print_usage
+    ;;
+esac

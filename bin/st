@@ -6,6 +6,13 @@
 
 set -euo pipefail
 
+# Load configuration from config file if it exists
+config_file="$(dirname "$(dirname "$(realpath "$0")")")/config/smalltalk.conf"
+if [[ -f "$config_file" ]]; then
+  source "$config_file"
+fi
+
+# Set defaults, allowing environment variables to override config file
 host=${SMALLTALK_HOST:-172.25.224.1}
 port=${SMALLTALK_PORT:-8097}
 wait_s=${SMALLTALK_TIMEOUT:-8}
