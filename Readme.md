@@ -19,7 +19,7 @@ There's also a component builder class (work in progress) that can load `.gui` f
 
 3. **Start the Dolphin Server**: In Dolphin, load the `ClaudeIntegration` package and execute:
    ```smalltalk
-   server := ClaudeCodeTcpBridge new. 
+   server := ClaudeCodeTcpServer new. 
    server start
    ```
    
