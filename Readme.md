@@ -60,43 +60,16 @@ Environment variables can still override these settings. Use `bin/st-config` to 
 ./bin/st-config set SMALLTALK_PORT 8097
 ```
 
-### Usage Examples
+### Basic Usage
 
-#### Basic Execution
+The `bin/st` script provides a simple interface to send Smalltalk code to the running Dolphin image:
+
 ```bash
-# Direct command execution
-./bin/st "Object allSubclasses size"
+# Basic command
+./bin/st "1 + 2"
 
-# Multi-line code from stdin
-./bin/st <<'ST'
-| pairs |
-pairs := OrderedCollection new.
-Object withAllSubclasses do: [:c | 
-  pairs add: (Array with: c name with: c selectors size)].
-pairs size
-ST
-
-# Execute from file
-./bin/st -f scripts/example.st
-
-# Mirror to Transcript (-T flag)
-./bin/st -T "Transcript show: 'Hello from Claude'; cr"
-```
-
-#### Complex Analysis Example
-```bash
-./bin/st -T <<'ST'
-| report |
-report := String streamContents: [:s |
-  Object withAllSubclasses do: [:cls |
-    s nextPutAll: cls name; 
-      nextPutAll: ' (';
-      nextPutAll: cls selectors size printString;
-      nextPutAll: ' methods)'; cr
-  ]
-].
-report
-ST
+# Get help
+./bin/st -h
 ```
 
 ### Logging and Output
@@ -104,45 +77,6 @@ ST
 - `var/last.out`: Last raw output received
 - `var/st.log`: Append-only log with timestamps, host:port, code, and output
 
-### Best Practices
-
-#### Quoting and Escaping
-- Smalltalk uses single quotes for strings, double quotes for comments
-- For complex code, prefer `-f <file>` or stdin to avoid shell escaping
-- Use doubled single quotes to embed quotes: `'That''s fine'`
-
-#### Method Compilation
-```smalltalk
-# Direct compilation (preferred)
-(Smalltalk at: #SDL3Library)
-  compile: 'methodName
-    <cdecl: return_type FunctionName param_types>
-    ^self invalidCall: _failureCode'
-  classified: 'category'.
-
-# For complex methods with pragmas, use file input:
-./bin/st -f scripts/compile_method.st
-```
-
-#### Error Handling
-- Network timeouts are handled by netcat `-w` flag
-- Connection failures return empty output
-- All communication is logged for debugging
-
-### Development Workflow
-
-#### Code Execution Process
-1. Claude Code sends Smalltalk expressions via `bin/st`
-2. Dolphin server evaluates and returns results
-3. Results are logged and returned to Claude Code
-4. Complex operations can be built incrementally
-
-
-
-#### Debugging
-- Use `-T` flag to mirror output to Transcript
-- Check `var/st.log` for complete interaction history
-- Use `var/last.st` and `var/last.out` for immediate debugging
 
 ### Legacy Integration History
 
