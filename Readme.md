@@ -1,0 +1,175 @@
+# Dolphin Smalltalk Claude Code Integration Project
+
+## What it is
+
+A bridge between Claude Code and Dolphin Smalltalk that enables real-time Smalltalk code execution in your live image. Very powerful, especially for setting up external interfacing libraries.
+
+### Component Builder Feature
+
+There's also a component builder class (work in progress) that can load `.gui` files. An example GUI lets you call back into Claude from the image using the `sendToClaude:` message and get responses. You can actually work with Claude without the Claude Code GUI open this way, or execute these commands in the workspace. Note: Claude running this way operates with skip dangerous permissions mode on, so there's no way to stop what it's doing until it completes a task.
+
+## Quick Start Instructions
+
+1. **Setup**: Put your image file in this folder and run Claude Code:
+   ```bash
+   claude
+   ```
+
+2. **Configuration**: Claude should read the `CLAUDE.md` file automatically. If it doesn't, tell it to read it.
+
+3. **Start the Dolphin Server**: In Dolphin, load the `ClaudeIntegration` package and execute:
+   ```smalltalk
+   server := ClaudeCodeTcpBridge new. 
+   server start
+   ```
+   
+   > 📝 **Note**: Check the TCP port shown in the system transcript - you may need to tell Claude about it.
+
+4. **Communication**: Claude will send commands to the `bin/st` script that communicates with the Dolphin TCP bridge.
+
+### Requirements
+
+- **WSL**: You must run Claude Code in WSL for this to work (though you could modify the project if Claude Code runs in Windows)
+
+---
+
+## Detailed Documentation
+
+### Communication Architecture
+
+#### TCP Bridge Protocol
+- **Endpoint**: The Dolphin server listens on `172.25.224.1:8097` (configurable)
+- **Helper Script**: `bin/st` provides a command-line interface to send Smalltalk code
+- **Protocol**: Simple TCP socket communication using netcat (`nc`)
+
+#### Environment Variables
+- `SMALLTALK_HOST` (default: `172.25.224.1`)
+- `SMALLTALK_PORT` (default: `8097`) 
+- `SMALLTALK_TIMEOUT` (default: `8` seconds)
+
+### Usage Examples
+
+#### Basic Execution
+```bash
+# Direct command execution
+./bin/st "Object allSubclasses size"
+
+# Multi-line code from stdin
+./bin/st <<'ST'
+| pairs |
+pairs := OrderedCollection new.
+Object withAllSubclasses do: [:c | 
+  pairs add: (Array with: c name with: c selectors size)].
+pairs size
+ST
+
+# Execute from file
+./bin/st -f scripts/example.st
+
+# Mirror to Transcript (-T flag)
+./bin/st -T "Transcript show: 'Hello from Claude'; cr"
+```
+
+#### Complex Analysis Example
+```bash
+./bin/st -T <<'ST'
+| report |
+report := String streamContents: [:s |
+  Object withAllSubclasses do: [:cls |
+    s nextPutAll: cls name; 
+      nextPutAll: ' (';
+      nextPutAll: cls selectors size printString;
+      nextPutAll: ' methods)'; cr
+  ]
+].
+report
+ST
+```
+
+### Logging and Output
+- `var/last.st`: Last Smalltalk code sent
+- `var/last.out`: Last raw output received
+- `var/st.log`: Append-only log with timestamps, host:port, code, and output
+
+### Best Practices
+
+#### Quoting and Escaping
+- Smalltalk uses single quotes for strings, double quotes for comments
+- For complex code, prefer `-f <file>` or stdin to avoid shell escaping
+- Use doubled single quotes to embed quotes: `'That''s fine'`
+
+#### Method Compilation
+```smalltalk
+# Direct compilation (preferred)
+(Smalltalk at: #SDL3Library)
+  compile: 'methodName
+    <cdecl: return_type FunctionName param_types>
+    ^self invalidCall: _failureCode'
+  classified: 'category'.
+
+# For complex methods with pragmas, use file input:
+./bin/st -f scripts/compile_method.st
+```
+
+#### Error Handling
+- Network timeouts are handled by netcat `-w` flag
+- Connection failures return empty output
+- All communication is logged for debugging
+
+### Development Workflow
+
+#### Code Execution Process
+1. Claude Code sends Smalltalk expressions via `bin/st`
+2. Dolphin server evaluates and returns results
+3. Results are logged and returned to Claude Code
+4. Complex operations can be built incrementally
+
+
+
+#### Debugging
+- Use `-T` flag to mirror output to Transcript
+- Check `var/st.log` for complete interaction history
+- Use `var/last.st` and `var/last.out` for immediate debugging
+
+### Legacy Integration History
+
+This repository contains evidence of a previous integration system designed for ChatGPT/Codex:
+
+#### ClaudeIntegration Package Structure
+- **ClaudeCodeClient**: Main interface for AI communication
+- **ClaudeCodeTcpServer**: TCP server for bidirectional communication
+- **ClaudeCodeRequest/Response**: Request/response handling classes
+- **AIWorkspace**: Specialized workspace for AI interactions
+- **Component Builder**: GUI generation system
+
+#### Previous Features
+- JSON-based messaging with session management
+- Node.js bridge script (`claude-bridge-resume.js`) for handling requests
+- WSL integration for cross-platform compatibility
+- Complete JSON response parsing with timeout handling
+- Session persistence and resume capabilities
+- 10-minute timeout for complex operations
+- Session ID tracking and history
+- GUI component generation from specifications
+- Real-time response streaming
+- Error handling and recovery
+
+### Current Claude Code Integration
+
+#### Simplified Protocol
+The current system uses a simpler, more reliable approach:
+- Direct TCP communication via `bin/st`
+- No intermediate JSON layers
+- Immediate response handling
+- Built-in logging and debugging
+
+### Security Considerations
+
+- The TCP server accepts arbitrary Smalltalk code execution
+- Network access is restricted and requires elevated permissions
+- All code execution is logged for audit purposes
+- The system is designed for development environments only
+
+---
+
+This architecture enables Claude Code to provide sophisticated Smalltalk development assistance with real-time image introspection and modification capabilities.

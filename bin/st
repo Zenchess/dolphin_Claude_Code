@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Thin helper to send Smalltalk code to a Dolphin server over TCP.
+# Usage:
+#   st [-H host] [-P port] [-w seconds] [-f file] [code...]
+#   If no code is provided, reads from stdin (supports multiline).
+
+set -euo pipefail
+
+host=${SMALLTALK_HOST:-172.25.224.1}
+port=${SMALLTALK_PORT:-8097}
+wait_s=${SMALLTALK_TIMEOUT:-8}
+to_transcript=0
+
+print_usage() {
+  cat <<USAGE
+Usage: $(basename "$0") [-H host] [-P port] [-w seconds] [-f file] [-T] [code...]
+  -H host      Server host (default: ${host})
+  -P port      Server port (default: ${port})
+  -w seconds   Netcat timeout seconds (default: ${wait_s})
+  -f file      Read Smalltalk code from file
+  -T           Mirror result to Transcript and still return it
+
+Examples:
+  $(basename "$0") "Object allSubclasses size"
+  echo "1 + 2" | $(basename "$0")
+  $(basename "$0") -f script.st
+USAGE
+}
+
+code_src=""
+
+while getopts ":H:P:w:f:Th" opt; do
+  case $opt in
+    H) host=$OPTARG ;;
+    P) port=$OPTARG ;;
+    w) wait_s=$OPTARG ;;
+    f) code_src=$OPTARG ;;
+    T) to_transcript=1 ;;
+    h) print_usage; exit 0 ;;
+    :) echo "Missing argument for -$OPTARG" >&2; print_usage; exit 2 ;;
+    \?) echo "Unknown option: -$OPTARG" >&2; print_usage; exit 2 ;;
+  esac
+done
+shift $((OPTIND-1))
+
+code=""
+if [[ -n "$code_src" ]]; then
+  if [[ ! -f "$code_src" ]]; then
+    echo "File not found: $code_src" >&2
+    exit 2
+  fi
+  code=$(cat "$code_src")
+elif [[ $# -gt 0 ]]; then
+  code="$*"
+else
+  # Read from stdin (supports multiline)
+  code=$(cat)
+fi
+
+if ! grep -q "[^[:space:]]" <<< "$code"; then
+  echo "No Smalltalk code provided" >&2
+  exit 2
+fi
+
+# Optionally wrap to mirror result to Transcript (and still return it)
+if [[ $to_transcript -eq 1 ]]; then
+  code="[ :r | Transcript show: r printString; cr. r ] value: ( $code )"
+fi
+
+# Log code and output for visibility
+mkdir -p var
+printf "%s" "$code" > var/last.st
+
+# Send to Dolphin server and capture output
+out=$(printf "%s" "$code" | nc -w "$wait_s" -N "$host" "$port" || true)
+
+# Write last output and append to log, also echo to stdout
+printf "%s\n" "$out" | tee var/last.out >/dev/null
+{
+  echo "---"
+  printf "[%s] %s:%s\nCODE:\n%s\nOUTPUT:\n%s\n" \
+    "$(date -Is)" "$host" "$port" "$code" "$out"
+} >> var/st.log
+
+# Echo output to caller
+printf "%s\n" "$out"
